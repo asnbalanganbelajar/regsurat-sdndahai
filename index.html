@@ -748,7 +748,7 @@
                 <div class="modal-body">
 					<form id="formSurat">
 						<input type="hidden" id="kategoriSurat">
-						<input type="hidden" id="realRowNumber">
+						<input type="hidden" id="idSurat">
 						<input type="hidden" id="isEditMode" value="false">
 						<input type="hidden" id="existingFileUrl">
 
@@ -1374,13 +1374,13 @@
             let dataMasukPerBulan = new Array(12).fill(0);
             let dataKeluarPerBulan = new Array(12).fill(0);
 
-            globalData.suratMasuk.forEach(row => {
-                const d = new Date(row.values[1]);
+			globalData.suratMasuk.forEach(row => {
+                const d = new Date(row.values[2]); // Index 2: Tanggal
                 if (!isNaN(d)) dataMasukPerBulan[d.getMonth()]++;
             });
 
             globalData.suratKeluar.forEach(row => {
-                const d = new Date(row.values[1]);
+                const d = new Date(row.values[2]); // Index 2: Tanggal
                 if (!isNaN(d)) dataKeluarPerBulan[d.getMonth()]++;
             });
 
@@ -1400,8 +1400,8 @@
             });
 
             let jenisCount = {};
-            globalData.suratMasuk.forEach(row => { let j = row.values[3]; jenisCount[j] = (jenisCount[j] || 0) + 1; });
-            globalData.suratKeluar.forEach(row => { let j = row.values[5]; jenisCount[j] = (jenisCount[j] || 0) + 1; });
+			globalData.suratMasuk.forEach(row => { let j = row.values[4]; jenisCount[j] = (jenisCount[j] || 0) + 1; }); // Index 4: Jenis
+            globalData.suratKeluar.forEach(row => { let j = row.values[6]; jenisCount[j] = (jenisCount[j] || 0) + 1; }); // Index 6: Jenis
 
             const sortedJenis = Object.entries(jenisCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
             const jenisLabels = sortedJenis.map(i => i[0]);
@@ -1420,9 +1420,9 @@
             });
 
             // 3. Render Aktivitas Terakhir (Desktop Table & Mobile Cards)
-            let allActivity = [];
-            globalData.suratMasuk.forEach(row => { allActivity.push({ tgl: new Date(row.values[1]), kategori: 'Masuk', no: row.values[2], perihal: row.values[4], user: row.values[8] || '-' }); });
-            globalData.suratKeluar.forEach(row => { allActivity.push({ tgl: new Date(row.values[1]), kategori: 'Keluar', no: row.values[4], perihal: row.values[6], user: row.values[10] || '-' }); });
+			let allActivity = [];
+            globalData.suratMasuk.forEach(row => { allActivity.push({ tgl: new Date(row.values[2]), kategori: 'Masuk', no: row.values[3], perihal: row.values[5], user: row.values[9] || '-' }); });
+            globalData.suratKeluar.forEach(row => { allActivity.push({ tgl: new Date(row.values[2]), kategori: 'Keluar', no: row.values[5], perihal: row.values[7], user: row.values[11] || '-' }); });
 
             allActivity.sort((a, b) => b.tgl - a.tgl);
             const recent = allActivity.slice(0, 5);
@@ -1561,71 +1561,55 @@
             const termMasuk = document.getElementById('searchMasuk') ? document.getElementById('searchMasuk').value.toLowerCase() : '';
             const termKeluar = document.getElementById('searchKeluar') ? document.getElementById('searchKeluar').value.toLowerCase() : '';
 
-            // --- OPTIMASI PENCARIAN ---
-
             // SURAT MASUK
-            // Target: Nomor(2), Jenis(3), Perihal(4), Asal(5)
+            // Target: Nomor(3), Jenis(4), Perihal(5), Asal(6)
             const filteredMasuk = globalData.suratMasuk.filter(row => {
                 const v = row.values;
-                // Kita gabung data jadi satu string kecil agar pencarian mencakup semuanya
-                const str = (v[2] + " " + v[3] + " " + v[4] + " " + v[5]).toLowerCase();
+                const str = (v[3] + " " + v[4] + " " + v[5] + " " + v[6]).toLowerCase();
                 return str.includes(termMasuk);
             });
 
-            // SURAT KELUAR (PERBAIKAN INDEKS KOLOM)
-            // Target: No.Lengkap(4), Jenis(5), Perihal(6), Tujuan(7)
+            // SURAT KELUAR
+            // Target: No.Lengkap(5), Jenis(6), Perihal(7), Tujuan(8)
             const filteredKeluar = globalData.suratKeluar.filter(row => {
                 const v = row.values;
-                // Sebelumnya indexnya kurang tepat, sekarang sudah diarahkan ke Jenis & Perihal
-                const str = (v[4] + " " + v[5] + " " + v[6] + " " + v[7]).toLowerCase();
+                const str = (v[5] + " " + v[6] + " " + v[7] + " " + v[8]).toLowerCase();
                 return str.includes(termKeluar);
             });
-
-            // --- LOGIKA PAGINATION (TETAP) ---
 
             const paginatedMasuk = filteredMasuk.slice((currentPageMasuk - 1) * rowsPerPageMasuk, (currentPageMasuk - 1) * rowsPerPageMasuk + rowsPerPageMasuk);
             const paginatedKeluar = filteredKeluar.slice((currentPageKeluar - 1) * rowsPerPageKeluar, (currentPageKeluar - 1) * rowsPerPageKeluar + rowsPerPageKeluar);
 
-            // --- HELPER RENDER BARIS ---
-            
-			const createRow = (rowObj, type) => {
-				const row = rowObj.values;
-				const realRow = rowObj.rowNumber;
-				const idxUrl = type === 'masuk' ? 7 : 9; // Index URL File
-				
-				let btnFile = row[idxUrl] ? 
-					`<button class="btn-circle btn-circle-primary" onclick="openFilePreview('${row[idxUrl]}')" title="Preview File">
-						<i class="fas fa-eye"></i>
-					 </button>` : 
-					`<button class="btn-circle btn-circle-disabled" disabled><i class="fas fa-eye-slash"></i></button>`;				
-				
-				let tgl = new Date(row[1]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-				const badgeClass = type === 'masuk' ? 'badge-masuk' : 'badge-keluar';
+            const createRow = (rowObj, type) => {
+                const row = rowObj.values;
+                const idSurat = row[0]; // MENGGUNAKAN ID DI KOLOM A
+                const idxUrl = type === 'masuk' ? 8 : 10; // Bergeser +1
+                
+                let btnFile = row[idxUrl] ? 
+                    `<button class="btn-circle btn-circle-primary" onclick="openFilePreview('${row[idxUrl]}')" title="Preview File"><i class="fas fa-eye"></i></button>` : 
+                    `<button class="btn-circle btn-circle-disabled" disabled><i class="fas fa-eye-slash"></i></button>`;				
+                
+                let tgl = new Date(row[2]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); // Bergeser ke index 2
+                const badgeClass = type === 'masuk' ? 'badge-masuk' : 'badge-keluar';
 
-				if (type === 'masuk') {
-                    // TAMPILAN SURAT MASUK
-                    // Kolom: No Surat, Jenis & Perihal, Asal, Ket
-					return `<tr>
-							<td><div class="fw-bold text-dark small">${row[2]}</div><small class="text-muted" style="font-size: 0.75rem;"><i class="far fa-calendar-alt me-1 text-primary"></i> ${tgl}</small></td>
-							<td><span class="badge ${badgeClass} mb-1">${row[3]}</span><div class="small text-dark text-wrap">${row[4]}</div></td>
-							<td><div class="small fw-medium">${row[5]}</div></td>
-							<td><small class="text-muted text-wrap">${row[6] || '-'}</small></td>
-							<td class="text-center"><div class="d-flex justify-content-center gap-2">${btnFile}<button class="btn-circle btn-circle-warning" onclick="editData('${type}', ${realRow})" title="Edit Data"><i class="fas fa-pen"></i></button><button class="btn-circle btn-circle-danger" onclick="hapusData('${type}', ${realRow})" title="Hapus Data"><i class="fas fa-trash-alt"></i></button></div></td>
-						</tr>`;
-				} else {
-                    // TAMPILAN SURAT KELUAR
-                    // Kolom: No Lengkap, Jenis & Perihal, Tujuan, Ket
-					return `<tr>
-							<td><div class="fw-bold text-dark small">${row[4]}</div> <small class="text-muted" style="font-size: 0.75rem;"><i class="far fa-calendar-alt me-1 text-warning"></i> ${tgl}</small></td>
-							<td><span class="badge ${badgeClass} mb-1">${row[5]}</span><div class="small text-dark text-wrap">${row[6]}</div></td>
-							<td><div class="small fw-medium">${row[7]}</div></td>
-							<td><small class="text-muted text-wrap">${row[8] || '-'}</small></td>
-							<td class="text-center"><div class="d-flex justify-content-center gap-2">${btnFile}<button class="btn-circle btn-circle-warning" onclick="editData('${type}', ${realRow})" title="Edit Data"><i class="fas fa-pen"></i></button><button class="btn-circle btn-circle-danger" onclick="hapusData('${type}', ${realRow})" title="Hapus Data"><i class="fas fa-trash-alt"></i></button></div></td>
-						</tr>`;
-				}
-			};
-
-            // --- RENDER KE TABEL HTML ---
+                if (type === 'masuk') {
+                    return `<tr>
+                            <td><div class="fw-bold text-dark small">${row[3]}</div><small class="text-muted" style="font-size: 0.75rem;"><i class="far fa-calendar-alt me-1 text-primary"></i> ${tgl}</small></td>
+                            <td><span class="badge ${badgeClass} mb-1">${row[4]}</span><div class="small text-dark text-wrap">${row[5]}</div></td>
+                            <td><div class="small fw-medium">${row[6]}</div></td>
+                            <td><small class="text-muted text-wrap">${row[7] || '-'}</small></td>
+                            <td class="text-center"><div class="d-flex justify-content-center gap-2">${btnFile}<button class="btn-circle btn-circle-warning" onclick="editData('${type}', '${idSurat}')" title="Edit Data"><i class="fas fa-pen"></i></button><button class="btn-circle btn-circle-danger" onclick="hapusData('${type}', '${idSurat}')" title="Hapus Data"><i class="fas fa-trash-alt"></i></button></div></td>
+                        </tr>`;
+                } else {
+                    return `<tr>
+                            <td><div class="fw-bold text-dark small">${row[5]}</div> <small class="text-muted" style="font-size: 0.75rem;"><i class="far fa-calendar-alt me-1 text-warning"></i> ${tgl}</small></td>
+                            <td><span class="badge ${badgeClass} mb-1">${row[6]}</span><div class="small text-dark text-wrap">${row[7]}</div></td>
+                            <td><div class="small fw-medium">${row[8]}</div></td>
+                            <td><small class="text-muted text-wrap">${row[9] || '-'}</small></td>
+                            <td class="text-center"><div class="d-flex justify-content-center gap-2">${btnFile}<button class="btn-circle btn-circle-warning" onclick="editData('${type}', '${idSurat}')" title="Edit Data"><i class="fas fa-pen"></i></button><button class="btn-circle btn-circle-danger" onclick="hapusData('${type}', '${idSurat}')" title="Hapus Data"><i class="fas fa-trash-alt"></i></button></div></td>
+                        </tr>`;
+                }
+            };
 
             const tbodyMasuk = document.querySelector('#tableMasuk tbody'); tbodyMasuk.innerHTML = '';
             if (paginatedMasuk.length === 0) tbodyMasuk.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted"><div class="p-4 bg-light rounded d-inline-block border"><i class="fas fa-folder-open fa-3x mb-3 text-secondary"></i><p class="mb-0">Data tidak ditemukan.</p></div></td></tr>';
@@ -1637,7 +1621,6 @@
             else paginatedKeluar.forEach(rowObj => tbodyKeluar.innerHTML += createRow(rowObj, 'keluar'));
             renderPaginationControls(filteredKeluar.length, currentPageKeluar, rowsPerPageKeluar, 'keluar', 'paginationKeluar');
        
-			// --- TAMBAHAN BARU: RENDER MOBILE CARDS ---
             renderMobileCards(paginatedMasuk, 'masuk');
             renderMobileCards(paginatedKeluar, 'keluar');
         }
@@ -1653,26 +1636,24 @@
                 return;
             }
 
-            data.forEach(rowObj => {
+			data.forEach(rowObj => {
                 const row = rowObj.values;
-                const realRow = rowObj.rowNumber;
-                const tgl = new Date(row[1]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
-                const idxUrl = type === 'masuk' ? 7 : 9;
+                const idSurat = row[0]; // MENGGUNAKAN ID
+                const tgl = new Date(row[2]).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' }); // Index 2
+                const idxUrl = type === 'masuk' ? 8 : 10;
                 const hasFile = !!row[idxUrl];
                 
-                // Variabel Data
                 let noSurat, perihal, subInfo;
                 if (type === 'masuk') {
-                    noSurat = row[2];
-                    perihal = row[4]; // Index 4: Perihal
-                    subInfo = `<i class="fas fa-building me-1"></i> ${row[5]}`; // Asal
+                    noSurat = row[3];
+                    perihal = row[5]; 
+                    subInfo = `<i class="fas fa-building me-1"></i> ${row[6]}`; 
                 } else {
-                    noSurat = row[4]; // No Lengkap
-                    perihal = row[6]; // Index 6: Perihal
-                    subInfo = `<i class="fas fa-paper-plane me-1"></i> Ke: ${row[7]}`; // Tujuan
+                    noSurat = row[5]; 
+                    perihal = row[7]; 
+                    subInfo = `<i class="fas fa-paper-plane me-1"></i> Ke: ${row[8]}`; 
                 }
                 
-                // Tombol File
                 let btnFileHtml = hasFile ? 
                     `<button class="btn btn-sm btn-outline-primary rounded-pill px-3" onclick="openFilePreview('${row[idxUrl]}')"><i class="fas fa-eye me-1"></i> Lihat</button>` :
                     `<span class="text-muted small"><i class="fas fa-times-circle"></i> No File</span>`;
@@ -1690,8 +1671,8 @@
                         <div class="m-card-footer">
                             <div>${btnFileHtml}</div>
                             <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-light text-warning border" onclick="editData('${type}', ${realRow})"><i class="fas fa-pen"></i></button>
-                                <button class="btn btn-sm btn-light text-danger border" onclick="hapusData('${type}', ${realRow})"><i class="fas fa-trash"></i></button>
+                                <button class="btn btn-sm btn-light text-warning border" onclick="editData('${type}', '${idSurat}')"><i class="fas fa-pen"></i></button>
+                                <button class="btn btn-sm btn-light text-danger border" onclick="hapusData('${type}', '${idSurat}')"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
                     </div>
@@ -1778,7 +1759,7 @@
 
 		function openModal(type) {
 			document.getElementById('formSurat').reset(); resetDropZone(); updateModalHeaderColor(type);
-			document.getElementById('isEditMode').value = "false"; document.getElementById('realRowNumber').value = ""; document.getElementById('existingFileUrl').value = ""; document.getElementById('btnSimpan').innerText = "Simpan"; document.getElementById('fileHelpText').innerHTML = ""; document.getElementById('previewNoSurat').innerText = "-";
+			document.getElementById('isEditMode').value = "false"; document.getElementById('idSurat').value = ""; document.getElementById('existingFileUrl').value = ""; document.getElementById('btnSimpan').innerText = "Simpan"; document.getElementById('fileHelpText').innerHTML = ""; document.getElementById('previewNoSurat').innerText = "-";
 
 			const title = document.getElementById('modalTitle'); const katInput = document.getElementById('kategoriSurat');
 			if (type === 'masuk') {
@@ -1796,30 +1777,33 @@
 			myModal.show();
 		}
 
-		function editData(type, rowNumber) {
+		function editData(type, idSurat) {
 			const sourceArray = type === 'masuk' ? globalData.suratMasuk : globalData.suratKeluar;
-			const dataObj = sourceArray.find(item => item.rowNumber === rowNumber);
+			const dataObj = sourceArray.find(item => item.values[0] === idSurat); // Cari berdasarkan ID
 			if (!dataObj) return;
 
 			const rowData = dataObj.values;
-			const idxPenginput = type === 'masuk' ? 8 : 10;
+			const idxPenginput = type === 'masuk' ? 9 : 11; // Bergeser +1
 			const penginput = rowData[idxPenginput] ? rowData[idxPenginput] : "-";
 
 			if (penginput !== "-" && penginput !== currentUser.username && currentUser.role !== 'Super Admin') return Swal.fire({icon: 'error', title: 'Akses Ditolak', text: `Hanya Pemilik/Penginput Awal dan Super Admin yang dapat memodifikasi data ini.`});
 
 			openModal(type);
-			document.getElementById('isEditMode').value = "true"; document.getElementById('realRowNumber').value = rowNumber; document.getElementById('btnSimpan').innerText = "Simpan"; document.getElementById('modalTitle').innerHTML = "<i class='fas fa-pen-square me-2'></i>Edit Data";
+			document.getElementById('isEditMode').value = "true"; 
+            document.getElementById('idSurat').value = idSurat; // Set ID ke hidden input
+            document.getElementById('btnSimpan').innerText = "Simpan"; 
+            document.getElementById('modalTitle').innerHTML = "<i class='fas fa-pen-square me-2'></i>Edit Data";
 
-			const d = new Date(rowData[1]); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
+			const d = new Date(rowData[2]); const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, '0'); const dd = String(d.getDate()).padStart(2, '0');
 			document.getElementById('inpTanggal').value = `${yyyy}-${mm}-${dd}`;
 
 			if (type === 'masuk') {
-				document.getElementById('inpNomorMasuk').value = rowData[2]; document.getElementById('inpJenis').value = rowData[3]; document.getElementById('inpPerihal').value = rowData[4]; document.getElementById('inpPengirim').value = rowData[5]; document.getElementById('inpKeterangan').value = rowData[6]; document.getElementById('existingFileUrl').value = rowData[7]; checkFileStatus(rowData[7]);
+				document.getElementById('inpNomorMasuk').value = rowData[3]; document.getElementById('inpJenis').value = rowData[4]; document.getElementById('inpPerihal').value = rowData[5]; document.getElementById('inpPengirim').value = rowData[6]; document.getElementById('inpKeterangan').value = rowData[7]; document.getElementById('existingFileUrl').value = rowData[8]; checkFileStatus(rowData[8]);
 			} else {
-				document.getElementById('inpKode').value = rowData[2]; document.getElementById('inpNoUrut').value = rowData[3];
-				const parts = (rowData[4] || "").split('/');
+				document.getElementById('inpKode').value = rowData[3]; document.getElementById('inpNoUrut').value = rowData[4];
+				const parts = (rowData[5] || "").split('/');
 				if (parts.length >= 4) { document.getElementById('inpKodeLanjutan').value = parts[2]; document.getElementById('inpTahun').value = parts[3]; }
-				document.getElementById('inpJenis').value = rowData[5]; document.getElementById('inpPerihal').value = rowData[6]; document.getElementById('inpTujuan').value = rowData[7]; document.getElementById('inpKeterangan').value = rowData[8]; document.getElementById('existingFileUrl').value = rowData[9]; checkFileStatus(rowData[9]); updatePreviewNomor();
+				document.getElementById('inpJenis').value = rowData[6]; document.getElementById('inpPerihal').value = rowData[7]; document.getElementById('inpTujuan').value = rowData[8]; document.getElementById('inpKeterangan').value = rowData[9]; document.getElementById('existingFileUrl').value = rowData[10]; checkFileStatus(rowData[10]); updatePreviewNomor();
 			}
 		}
 
@@ -1829,23 +1813,18 @@
 			else fileHelp.innerText = "Dokumen fisik belum di-scan/diunggah.";
 		}
 
-		function hapusData(type, rowNumber) {
+		function hapusData(type, idSurat) {
             const sourceArray = type === 'masuk' ? globalData.suratMasuk : globalData.suratKeluar;
-            const dataObj = sourceArray.find(item => item.rowNumber === rowNumber);
+            const dataObj = sourceArray.find(item => item.values[0] === idSurat); // Cari berdasarkan ID
             if (!dataObj) return;
             const rowData = dataObj.values;
-            const penginput = rowData[type === 'masuk' ? 8 : 10] ? rowData[type === 'masuk' ? 8 : 10] : "-";
+            const penginput = rowData[type === 'masuk' ? 9 : 11] ? rowData[type === 'masuk' ? 9 : 11] : "-"; // Bergeser +1
 
             if (penginput !== "-" && penginput !== currentUser.username && currentUser.role !== 'Super Admin') return Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: `Hanya Pemilik/Penginput Awal dan Super Admin yang dapat menghapus data ini.` });
 
             Swal.fire({
                 title: 'Hapus Data Permanen?', 
-                // --- BAGIAN INI YANG DIUBAH ---
-                // Kita hapus style text-danger dan text-start.
-                // SweetAlert secara default akan membuat teks ini rata tengah dan berwarna abu gelap.
                 html: `Anda akan menghapus data ini secara permanen.<br>Masukkan password login Anda:`, 
-                // ------------------------------
-                
                 input: 'password', 
                 inputAttributes: { autocapitalize: 'off', placeholder: 'Ketik password Anda' }, 
                 icon: 'warning', 
@@ -1853,7 +1832,7 @@
                 confirmButtonColor: '#d33', 
                 cancelButtonColor: '#6c757d', 
                 confirmButtonText: 'Ya, Hapus Data!', 
-                cancelButtonText: 'Batal', // Ini sudah benar 'Batal' di kode asli Anda
+                cancelButtonText: 'Batal',
                 reverseButtons: true,
                 preConfirm: (password) => { 
                     if (!password) { Swal.showValidationMessage('Diperlukan password untuk otorisasi!'); return false; } 
@@ -1861,24 +1840,24 @@
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // TAMPILKAN LOADING SAAT TOMBOL HAPUS DIKLIK
                     showLoading(true); 
-                    kirimKeGAS({ action: 'hapusSurat', kategori: type === 'masuk' ? 'surat_masuk' : 'surat_keluar', rowNumber: rowNumber, username: currentUser.username, password: result.value });
+                    // Mengirim idSurat, bukan rowNumber
+                    kirimKeGAS({ action: 'hapusSurat', kategori: type === 'masuk' ? 'surat_masuk' : 'surat_keluar', idSurat: idSurat, username: currentUser.username, password: result.value });
                 }
             });
         }
 
 		function simpanData() {
-            const fileInput = document.getElementById('inpFile'); 
+			const fileInput = document.getElementById('inpFile'); 
             const kategori = document.getElementById('kategoriSurat').value; 
             const isEdit = document.getElementById('isEditMode').value === "true";
-            const currentRealRow = parseInt(document.getElementById('realRowNumber').value);
-            
-            // Siapkan Payload Awal
+            const currentId = document.getElementById('idSurat').value; // Mengambil ID
+			
+			// Siapkan Payload Awal
             const payload = { 
                 action: isEdit ? 'updateSurat' : 'simpanSurat', 
                 kategori: kategori, 
-                rowNumber: currentRealRow, 
+                idSurat: currentId, // Kirim ID ke Backend
                 tanggalSurat: document.getElementById('inpTanggal').value, 
                 jenisSurat: document.getElementById('inpJenis').value, 
                 perihal: document.getElementById('inpPerihal').value, 
@@ -1901,7 +1880,9 @@
                 payload.asal = document.getElementById('inpPengirim').value;
                 if (!payload.nomorSurat) emptyFields.push("Nomor Surat"); 
                 if (!payload.asal) emptyFields.push("Asal Instansi");
+				
             } else {
+			
                 // SURAT KELUAR
                 const k = document.getElementById('inpKode').value; 
                 const n = document.getElementById('inpNoUrut').value; 
@@ -1918,25 +1899,22 @@
                 if (!n) emptyFields.push("Nomor Urut"); 
                 if (!payload.tujuan) emptyFields.push("Penerima/Tujuan");
 
-                // === LOGIKA BARU: CEK DUPLIKASI DI SINI (CLIENT SIDE) ===
+				// === LOGIKA BARU: CEK DUPLIKASI ===
                 if (n && t) {
                     const inputNo = parseInt(n);
                     const inputTahun = String(t).trim();
 
-                    // Cek di array globalData.suratKeluar
                     const isDuplicate = globalData.suratKeluar.some(row => {
-                        // Jika sedang Edit, abaikan baris diri sendiri
-                        if (isEdit && row.rowNumber === currentRealRow) return false;
+                        // Jika sedang Edit, abaikan ID yang sama (diri sendiri)
+                        if (isEdit && row.values[0] === currentId) return false;
 
                         const existingValues = row.values;
-                        const exNoUrut = parseInt(existingValues[3]); // Index 3: No Urut
+                        const exNoUrut = parseInt(existingValues[4]); // Index 4: No Urut (bergeser)
                         
-                        // Ambil tahun dari No Lengkap (Index 4)
-                        const exNoLengkap = String(existingValues[4]);
+                        const exNoLengkap = String(existingValues[5]); // Index 5: No Lengkap (bergeser)
                         const parts = exNoLengkap.split('/');
                         const exTahun = parts.length > 0 ? parts[parts.length - 1].trim() : "";
 
-                        // Bandingkan
                         return exNoUrut === inputNo && exTahun === inputTahun;
                     });
 
@@ -2104,11 +2082,12 @@
 
             // --- 2. RENDER LOGO ---
             try {
-                // Logo Kiri (Balangan) - Posisi: Kiri atas (x=15, y=10), Ukuran: 25x25 mm
-                doc.addImage(logoKiriBase64, 'PNG', 15, 10, 25, 25); 
+                // Logo Kiri (Balangan) - Posisi X: 15, Y: 10, Lebar: 20mm, Tinggi: 20mm
+                doc.addImage(logoKiriBase64, 'PNG', 15, 10, 20, 24); 
                 
-                // Logo Kanan (Sekolah) - Posisi: Kanan atas (x=257, y=10), Ukuran: 25x25 mm
-                // 297 (lebar kertas) - 15 (margin kanan) - 25 (lebar logo) = 257
+                // Logo Kanan (Sekolah) - Posisi X: 257, Y: 10, Lebar: 20mm, Tinggi: 20mm
+                // Kertas A4 Landscape lebarnya adalah 297mm. Margin kanan yang Anda atur adalah 15mm.
+				// Jika lebar logo menjadi 20mm, maka rumus posisi X untuk logo kanan adalah: 297 (Lebar Kertas) - 15 (Margin Kanan) - 20 (Lebar Logo) = 262.
                 if (logoKananBase64.length > 100) { // Cek agar tidak error jika kode belum diisi
                     doc.addImage(logoKananBase64, 'PNG', 257, 10, 25, 25); 
                 }
@@ -2309,6 +2288,3 @@
 </body>
 
 </html>
-
-
-
