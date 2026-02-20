@@ -435,7 +435,7 @@
                 <div class="brand-title">AGENDA SURAT DIGITAL</div>
                 <div class="brand-divider"></div>
                 <div class="brand-subtitle">
-                    Sistem Register Surat Masuk dan Keluar<br>
+                    Sistem Register Surat Masuk dan Surat Keluar<br>
                     <strong>SDN DAHAI – NPSN 30304034</strong>
                 </div>
             </div>
@@ -459,7 +459,7 @@
                     </button>
                 </form>
                 <div class="login-footer-text">
-                    &copy; 2026 <span>by ASN Balangan Belajar</span>.
+                    &copy; 2026 <span>by Regsurat</span>.
                 </div>
             </div>
         </div>
@@ -927,32 +927,40 @@
         </div>
     </div>
 
-	<div class="modal fade" id="modalPreview" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered"> 
-            <div class="modal-content" style="height: 90vh;">
+    <div class="modal fade" id="modalPreview" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-xl"> 
+            <div class="modal-content" style="border-radius: 12px; overflow: hidden;">
                 <div class="modal-header bg-dark text-white py-2">
-                    <h6 class="modal-title small"><i class="fas fa-eye me-2"></i>Preview Dokumen</h6>
+                    <h6 class="modal-title fw-bold small"><i class="fas fa-eye me-2"></i>Pratinjau Dokumen</h6>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-0 bg-light d-flex justify-content-center align-items-center">
-                    <iframe id="framePreview" src="" style="width: 100%; height: 100%; border: none;" allow="autoplay"></iframe>
-                    
-                    <div id="previewLoader" class="position-absolute text-muted">
-                        <div class="spinner-border spinner-border-sm" role="status"></div> Memuat...
-                    </div>
-                </div>
-                <div class="modal-footer py-2 bg-white">
-				
-					<button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
-				
-                    <a id="btnDownloadReal" href="#" target="_blank" class="btn btn-primary btn-sm fw-bold">
-                        <i class="fas fa-download me-1"></i> Buka Asli
-                    </a>
-                    
+                <div class="modal-body p-0" style="height: 85vh; background: #333;">
+                    <iframe id="framePreview" src="" width="100%" height="100%" style="border:none;"></iframe>
                 </div>
             </div>
         </div>
     </div>
+
+	<div class="bottom-nav">
+        <a href="#" class="bottom-nav-item active" onclick="showTab('dashboard')" id="mob-dashboard">
+            <i class="fas fa-home"></i> Home
+        </a>
+        <a href="#" class="bottom-nav-item" onclick="showTab('suratMasuk')" id="mob-suratMasuk">
+            <i class="fas fa-inbox"></i> Masuk
+        </a>
+        <a href="#" class="bottom-nav-item" onclick="showTab('suratKeluar')" id="mob-suratKeluar">
+            <i class="fas fa-paper-plane"></i> Keluar
+        </a>
+        <a href="#" class="bottom-nav-item" onclick="showTab('pengaturan')" id="mob-pengaturan">
+            <i class="fas fa-cog"></i> Akun
+        </a>
+    </div>
+
+    <div class="fab-container" id="fabContainer">
+        <button class="btn-fab" onclick="handleFabClick()">
+            <i class="fas fa-plus"></i>
+        </button>
+    </div>	
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1982,38 +1990,28 @@
 
         function openDownloadModal(kategori) { document.getElementById('downloadKategori').value = kategori; document.getElementById('dlStartDate').value = ""; document.getElementById('dlEndDate').value = ""; dlModal.show(); }
 
-		// FUNGSI BUKA MODAL PREVIEW
+        // FUNGSI BUKA MODAL PREVIEW (VERSI SICAPER)
         const previewModal = new bootstrap.Modal(document.getElementById('modalPreview'));
         const framePreview = document.getElementById('framePreview');
-        const btnDownloadReal = document.getElementById('btnDownloadReal');
-        const previewLoader = document.getElementById('previewLoader');
 
         function openFilePreview(url) {
             if (!url) return;
 
-            // 1. Ubah URL View menjadi URL Preview (Khusus Google Drive)
-            // Dari: .../file/d/ID_FILE/view...
-            // Ke:   .../file/d/ID_FILE/preview
             let previewUrl = url;
+            
+            // Logika ekstrak ID file untuk link Google Drive agar bisa di-preview di iframe
             if (url.includes('drive.google.com')) {
-                previewUrl = url.replace(/\/view.*/, '/preview');
+                let matchId = url.match(/\/d\/(.+?)\//) || url.match(/id=(.+?)(&|$)/);
+                if (matchId && matchId[1]) {
+                    previewUrl = `https://drive.google.com/file/d/${matchId[1]}/preview`;
+                }
             }
 
-            // 2. Set Atribut Modal
-            framePreview.classList.add('d-none'); // Sembunyikan dulu frame
-            previewLoader.classList.remove('d-none'); // Tampilkan loader
-            
+            // Set URL ke iframe
             framePreview.src = previewUrl;
-            btnDownloadReal.href = url; // Tombol download tetap ke link asli
 
-            // 3. Tampilkan Modal
+            // Tampilkan Modal
             previewModal.show();
-
-            // 4. Saat iframe selesai loading, tampilkan frame
-            framePreview.onload = function() {
-                previewLoader.classList.add('d-none');
-                framePreview.classList.remove('d-none');
-            };
         }
 
         // Bersihkan iframe saat modal ditutup agar tidak memakan memori/suara
@@ -2262,29 +2260,18 @@
                 }
             });
         }
-    </script>
-	
-	<div class="bottom-nav">
-        <a href="#" class="bottom-nav-item active" onclick="showTab('dashboard')" id="mob-dashboard">
-            <i class="fas fa-home"></i> Home
-        </a>
-        <a href="#" class="bottom-nav-item" onclick="showTab('suratMasuk')" id="mob-suratMasuk">
-            <i class="fas fa-inbox"></i> Masuk
-        </a>
-        <a href="#" class="bottom-nav-item" onclick="showTab('suratKeluar')" id="mob-suratKeluar">
-            <i class="fas fa-paper-plane"></i> Keluar
-        </a>
-        <a href="#" class="bottom-nav-item" onclick="showTab('pengaturan')" id="mob-pengaturan">
-            <i class="fas fa-cog"></i> Akun
-        </a>
-    </div>
 
-    <div class="fab-container" id="fabContainer">
-        <button class="btn-fab" onclick="handleFabClick()">
-            <i class="fas fa-plus"></i>
-        </button>
-    </div>	
-	
+        // Menghilangkan fokus dari elemen apapun di dalam modal sesaat sebelum modal disembunyikan
+        document.querySelectorAll('.modal').forEach(function(modalElement) {
+            modalElement.addEventListener('hide.bs.modal', function () {
+                if (document.activeElement) {
+                    document.activeElement.blur();
+                }
+            });
+        });
+
+    </script>
+		
 </body>
 
 </html>
